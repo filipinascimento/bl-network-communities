@@ -2,7 +2,7 @@
     "index": "data/index.json",
     "label": "data/label.json",
     "csv": "data/csv",
-    "method":"infomap",
+    "method":"louvain",
     "infomap-trials": 10,
     "louvain-resolution" : null,
     "louvain-quality-function" : null

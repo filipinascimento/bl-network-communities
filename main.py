@@ -91,13 +91,13 @@ louvain_quality_function = "modularity"
 if("method" in config):
 	communiMethod = config["method"].lower()
 
-if("louvain-quality-function" in config and config["louvain-quality-function"] is not None):
+if("louvain-quality-function" in config and config["louvain-quality-function"]):
 	louvain_quality_function = config["louvain-quality-function"].lower()
 
 if("louvain-resolution" in config and isFloat(config["louvain-resolution"])):
 	louvain_resolution = float(config["louvain-resolution"])
 
-if("infomap-trials" in config and config["infomap-trials"] is not None):
+if("infomap-trials" in config and config["infomap-trials"]):
 	infomap_trials = int(config["infomap-trials"])
 
 with open(indexFilename, "r") as fd:
