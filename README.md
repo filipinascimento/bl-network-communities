@@ -1,5 +1,5 @@
 [![Abcdspec-compliant](https://img.shields.io/badge/ABCD_Spec-v1.1-green.svg)](https://github.com/brain-life/abcd-spec)
-[![Run on Brainlife.io](https://img.shields.io/badge/Brainlife-bl.app.1-blue.svg)](https://doi.org/10.25663/brainlife.app.277)
+[![Run on Brainlife.io](https://img.shields.io/badge/Brainlife-bl.app.1-blue.svg)](https://doi.org/10.25663/brainlife.app.290)
 
 # Network Null-Models
 Obtain the community structure for networks by using the Louvain or Infomap methods.
@@ -24,7 +24,7 @@ Obtain the community structure for networks by using the Louvain or Infomap meth
 
 ### On Brainlife.io
 
-You can submit this App online at [https://doi.org/10.25663/brainlife.app.277](https://doi.org/10.25663/brainlife.app.277) via the "Execute" tab.
+You can submit this App online at [https://doi.org/10.25663/brainlife.app.290](https://doi.org/10.25663/brainlife.app.290) via the "Execute" tab.
 
 ### Running Locally (on your machine)
 Singularity is required to run the package locally.
