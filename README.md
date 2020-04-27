@@ -56,7 +56,7 @@ A sample dataset is provided in folder `data` and `config-sample.json`
 
 ## Output
 
-The output is a conmat with an extra property contained the communities for each network. The new files ends with `_communities.txt` and are placed in the `csv` directory.
+The output is a conmat with an extra property contained the communities for each network. The new files end with `_communities.txt` and are placed in the `csv` directory.
 
 
 <!-- #### Product.json
