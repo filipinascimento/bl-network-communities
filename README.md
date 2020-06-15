@@ -2,7 +2,7 @@
 [![Run on Brainlife.io](https://img.shields.io/badge/Brainlife-bl.app.1-blue.svg)](https://doi.org/10.25663/brainlife.app.290)
 
 # Network Communities
-Obtain the community structure for networks by using the Louvain or Infomap methods.
+Obtain the community structure for networks using the Louvain or Infomap methods. Negative weights are supported only for Louvain.
 
 ### Authors
 - [Filipi N. Silva](filsilva@iu.edu)
@@ -10,8 +10,8 @@ Obtain the community structure for networks by using the Louvain or Infomap meth
 <!-- ### Contributors
 - Franco Pestilli (franpest@indiana.edu) -->
 
-<!-- ### Funding  -->
-<!-- [![NSF-BCS-1734853](https://img.shields.io/badge/NSF_BCS-1734853-blue.svg)](https://nsf.gov/awardsearch/showAward?AWD_ID=1734853) -->
+### Funding
+[![NIH-1R01EB029272-01](https://img.shields.io/badge/NIH-1R01EB029272_01-blue.svg)](https://www.nibib.nih.gov/node/113361)
 
 
 ### Citations
@@ -19,6 +19,9 @@ Obtain the community structure for networks by using the Louvain or Infomap meth
 1. Blondel, Vincent D., Jean-Loup Guillaume, Renaud Lambiotte, and Etienne Lefebvre. "Fast unfolding of communities in large networks." Journal of statistical mechanics: theory and experiment 2008, no. 10 (2008): P10008. [https://doi.org/10.1088/1742-5468/2008/10/P10008](https://doi.org/10.1088/1742-5468/2008/10/P10008)
 
 2. Rosvall, Martin, and Carl T. Bergstrom. "Maps of random walks on complex networks reveal community structure." Proceedings of the National Academy of Sciences 105, no. 4 (2008): 1118-1123.[https://dx.doi.org/10.1073/pnas.0706851105](https://dx.doi.org/10.1073/pnas.0706851105)
+
+3. Rubinov, Mikail, and Olaf Sporns. "Weight-conserving characterization of complex functional brain networks." Neuroimage 56, no. 4 (2011): 2068-2079. [https://doi.org/10.1016/j.neuroimage.2011.03.069](https://doi.org/10.1016/j.neuroimage.2011.03.069)
+
 
 ## Running the App 
 

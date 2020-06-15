@@ -11,6 +11,62 @@ import louvain
 # import infomap
 
 
+def louvain_find_partition_multiplex(graphs, partition_type,layer_weights=None, seed=None, **kwargs):
+	""" Detect communities for multiplex graphs.
+	Each graph should be defined on the same set of vertices, only the edges may
+	differ for different graphs. See
+	:func:`Optimiser.optimise_partition_multiplex` for a more detailed
+	explanation.
+	Parameters
+	----------
+	graphs : list of :class:`ig.Graph`
+		List of :class:`louvain.VertexPartition` layers to optimise.
+	partition_type : type of :class:`MutableVertexPartition`
+		The type of partition to use for optimisation (identical for all graphs).
+	seed : int
+		Seed for the random number generator. By default uses a random seed
+		if nothing is specified.
+	**kwargs
+		Remaining keyword arguments, passed on to constructor of ``partition_type``.
+	Returns
+	-------
+	list of int
+		membership of nodes.
+	float
+		Improvement in quality of combined partitions, see
+		:func:`Optimiser.optimise_partition_multiplex`.
+	Notes
+	-----
+	We don't return a partition in this case because a partition is always
+	defined on a single graph. We therefore simply return the membership (which
+	is the same for all layers).
+	See Also
+	--------
+	:func:`Optimiser.optimise_partition_multiplex`
+	:func:`slices_to_layers`
+	Examples
+	--------
+	>>> n = 100
+	>>> G_1 = ig.Graph.Lattice([n], 1)
+	>>> G_2 = ig.Graph.Lattice([n], 1)
+	>>> membership, improvement = louvain.find_partition_multiplex([G_1, G_2],
+	...                                                            louvain.ModularityVertexPartition)
+	"""
+	n_layers = len(graphs)
+	partitions = []
+	if(layer_weights is None):
+		layer_weights = [1]*n_layers
+	for graph in graphs:
+		partitions.append(partition_type(graph, **kwargs))
+	optimiser = louvain.Optimiser()
+
+	if (not seed is None):
+		optimiser.set_rng_seed(seed)
+
+	improvement = optimiser.optimise_partition_multiplex(partitions, layer_weights)
+	return partitions[0].membership, improvement
+
+
 def check_symmetric(a, rtol=1e-05, atol=1e-08):
 	return np.allclose(a, a.T, rtol=rtol, atol=atol)
 
@@ -87,6 +143,7 @@ communiMethod = "louvain"
 infomap_trials = 10
 louvain_resolution = 1.0
 louvain_quality_function = "modularity"
+assymetricNegativeWeights = True
 
 if("method" in config):
 	communiMethod = config["method"].lower()
@@ -99,6 +156,9 @@ if("louvain-resolution" in config and isFloat(config["louvain-resolution"])):
 
 if("infomap-trials" in config and config["infomap-trials"]):
 	infomap_trials = int(config["infomap-trials"])
+
+if("assymetric-negative" in config):
+	assymetricNegativeWeights = config["assymetric-negative"]
 
 with open(indexFilename, "r") as fd:
 	indexData = json.load(fd)
@@ -138,32 +198,76 @@ for entry in indexData:
 		if(not ((weights==0) | (weights==1)).all()):
 			g.es['weight'] = weights[weights != 0]
 			weighted = True
-		
+
 		weightsProperty = None
+		signed = False;
 		if(weighted):
 			weightsProperty = "weight"
-		
+			if(np.any(np.array(g.es[weightsProperty])<0)):
+				signed=True;
+				g_pos = g.subgraph_edges(g.es.select(weight_gt = 0), delete_vertices=False)
+				g_neg = g.subgraph_edges(g.es.select(weight_lt = 0), delete_vertices=False)
+				g_neg.es['weight'] = [-w for w in g_neg.es['weight']]
+				modularityWeights = [1,-1];
+					
 		if(communiMethod=="louvain"):
+# 			optimiser = louvain.Optimiser()
+# 				diff = optimiser.optimise_partition_multiplex(
+# [part_pos, part_neg]
+			hasResolution = False;
+			partitionFunction = louvain.ModularityVertexPartition;
 			if(louvain_quality_function=="modularity"):
-				membership = louvain.find_partition(g,louvain.ModularityVertexPartition, weights=weightsProperty).membership
+				partitionFunction = louvain.ModularityVertexPartition;
+				if(signed and assymetricNegativeWeights):
+					modularityWeights = [1,-g_neg.ecount()/(g_pos.ecount()+g_neg.ecount())];
 			elif(louvain_quality_function=="rbconfiguration"):
-				membership = louvain.find_partition(g,louvain.RBConfigurationVertexPartition,
-					weights=weightsProperty, resolution_parameter=louvain_resolution).membership
+				partitionFunction = louvain.RBConfigurationVertexPartition;
+				hasResolution = True;
+				if(signed and assymetricNegativeWeights):
+					modularityWeights = [1/g_pos.ecount(),-1.0/(g_pos.ecount()+g_neg.ecount())];
 			elif(louvain_quality_function=="rber"):
-				membership = louvain.find_partition(g,louvain.RBConfigurationVertexPartition,
-					weights=weightsProperty, resolution_parameter=louvain_resolution).membership
+				partitionFunction = louvain.RBERVertexPartition;
+				hasResolution = True;
+				if(signed and assymetricNegativeWeights):
+					modularityWeights = [1/g_pos.ecount(),-1.0/(g_pos.ecount()+g_neg.ecount())];
 			elif(louvain_quality_function=="cpm"):
-				membership = louvain.find_partition(g,louvain.CPMVertexPartition,
-					weights=weightsProperty, resolution_parameter=louvain_resolution).membership
+				partitionFunction = louvain.CPMVertexPartition;
+				hasResolution = True;
+				if(signed and assymetricNegativeWeights):
+					modularityWeights = [1/g_pos.ecount(),-1.0/(g_pos.ecount()+g_neg.ecount())];
 			elif(louvain_quality_function=="significance"):
-				membership = louvain.find_partition(g,louvain.SignificanceVertexPartition).membership
+				partitionFunction = louvain.SignificanceVertexPartition;
+				hasResolution = False;
+				if(weighted):
+					sys.exit("Significance quality does not work for weighted networks");
 			elif(louvain_quality_function=="surprise"):
-				membership = louvain.find_partition(g,louvain.SurpriseVertexPartition,
-					weights=weightsProperty).membership
+				partitionFunction = louvain.SurpriseVertexPartition;
+				hasResolution = False;
+				if(signed and assymetricNegativeWeights):
+					modularityWeights = [1/g_pos.ecount(),-1.0/(g_pos.ecount()+g_neg.ecount())];
 			else:
 				sys.exit("Invalid louvain method.")
+			
+			if(signed):
+				if(hasResolution):
+					membership, improv = louvain_find_partition_multiplex([g_pos, g_neg],partitionFunction,
+						layer_weights=modularityWeights,resolution_parameter=louvain_resolution,weights=weightsProperty)
+				else:
+					membership, improv = louvain_find_partition_multiplex([g_pos, g_neg],partitionFunction,
+						layer_weights=modularityWeights,weights=weightsProperty)
+			else:
+				if(hasResolution):
+					membership = louvain.find_partition(g,partitionFunction,
+						weights=weightsProperty,resolution_parameter=louvain_resolution).membership
+				else:
+					membership = louvain.find_partition(g,partitionFunction,
+						weights=weightsProperty).membership
+		
 		elif(communiMethod=="infomap"):
-			membership = g.community_infomap(edge_weights=weightsProperty,trials=infomap_trials).membership
+			if(signed):
+				sys.exit("Infomap does not work for negative weights.")
+			else:
+				membership = g.community_infomap(edge_weights=weightsProperty,trials=infomap_trials).membership
 		else:
 			sys.exit("Invalid community detection method.")
 
