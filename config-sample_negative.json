@@ -1,0 +1,9 @@
+{
+    "index": "data_negative/index.json",
+    "label": "data_negative/label.json",
+    "csv": "data_negative/csv",
+    "method":"louvain",
+    "infomap-trials": 10,
+    "louvain-resolution" : null,
+    "louvain-quality-function" : "surprise"
+}
