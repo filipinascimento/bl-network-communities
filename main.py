@@ -45,6 +45,7 @@ class NumpyEncoder(json.JSONEncoder):
 			ret = ret.decode("utf-8")
 
 		return ret
+
 results = {"errors": [], "warnings": [], "brainlife": [], "datatype_tags": [], "tags": []}
 
 def warning(msg):
@@ -270,7 +271,7 @@ for network in tqdm(networks):
 			partitionFunction = louvain.SignificanceVertexPartition
 			hasResolution = False
 			if(weighted):
-				sys.exit("Significance quality does not work for weighted networks")
+				exitAppWithError("Significance quality does not work for weighted networks")
 		elif(louvain_quality_function=="surprise"):
 			partitionFunction = louvain.SurpriseVertexPartition
 			hasResolution = False
@@ -280,7 +281,7 @@ for network in tqdm(networks):
 				modularityWeights = [layerWeights[layerIndex]/allCount for layerIndex in range(len(layerWeights))]
 				modularityWeights[0] = 1.0/layerWeights[0]
 		else:
-			sys.exit("Invalid louvain method.")
+			exitAppWithError("Invalid louvain method.")
 		
 		if(layered):
 			if(hasResolution):
@@ -299,11 +300,11 @@ for network in tqdm(networks):
 	
 	elif(communiMethod=="infomap"):
 		if(signed):
-			sys.exit("Infomap does not work for negative weights.")
+			exitAppWithError("Infomap does not work for negative weights.")
 		else:
 			membership = network.community_infomap(edge_weights="weight",trials=infomap_trials).membership
 	else:
-		sys.exit("Invalid community detection method.")
+		exitAppWithError("Invalid community detection method.")
 
 	network.vs["Community"] = membership
 	
@@ -311,3 +312,4 @@ for network in tqdm(networks):
 
 jgf.igraph.save(outputNetworks, outputFile, compressed=True)
 
+exitApp()
