@@ -1,7 +1,5 @@
 {
-    "index": "data/index.json",
-    "label": "data/label.json",
-    "csv": "data/csv",
+    "network": "data/network.json.gz",
     "method":"louvain",
     "infomap-trials": 10,
     "louvain-resolution" : null,

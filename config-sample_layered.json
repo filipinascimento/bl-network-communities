@@ -1,5 +1,5 @@
 {
-    "network": "data_negative/network.json.gz",
+    "network": "data_layered/network.json.gz",
     "method":"louvain",
     "infomap-trials": 10,
     "louvain-resolution" : null,

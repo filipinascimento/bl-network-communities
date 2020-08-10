@@ -2,13 +2,81 @@
 
 import sys
 import os.path
+from os.path import join as PJ
 import re
 import json
 import numpy as np
 from tqdm import tqdm
 import igraph as ig
 import louvain
+import math
+import jgf
 # import infomap
+
+
+def isFloat(value):
+	if(value is None):
+		return False
+	try:
+		numericValue = float(value)
+		return np.isfinite(numericValue)
+	except ValueError:
+		return False
+
+
+class NumpyEncoder(json.JSONEncoder):
+	def default(self, obj):
+		if isinstance(obj, (np.int_, np.intc, np.intp, np.int8,
+			np.int16, np.int32, np.int64, np.uint8,
+			np.uint16, np.uint32, np.uint64)):
+			ret = int(obj)
+		elif isinstance(obj, (np.float_, np.float16, np.float32, np.float64)):
+			ret = float(obj)
+		elif isinstance(obj, (np.ndarray,)): 
+			ret = obj.tolist()
+		else:
+			ret = json.JSONEncoder.default(self, obj)
+
+		if isinstance(ret, (float)):
+			if math.isnan(ret):
+				ret = None
+
+		if isinstance(ret, (bytes, bytearray)):
+			ret = ret.decode("utf-8")
+
+		return ret
+results = {"errors": [], "warnings": [], "brainlife": [], "datatype_tags": [], "tags": []}
+
+def warning(msg):
+	global results
+	results['warnings'].append(msg) 
+	#results['brainlife'].append({"type": "warning", "msg": msg}) 
+	print(msg)
+
+def error(msg):
+	global results
+	results['errors'].append(msg) 
+	#results['brainlife'].append({"type": "error", "msg": msg}) 
+	print(msg)
+
+def exitApp():
+	global results
+	with open("product.json", "w") as fp:
+		json.dump(results, fp, cls=NumpyEncoder)
+	if len(results["errors"]) > 0:
+		sys.exit(1)
+	else:
+		sys.exit()
+
+def exitAppWithError(msg):
+	global results
+	results['errors'].append(msg) 
+	#results['brainlife'].append({"type": "error", "msg": msg}) 
+	print(msg)
+	exitApp()
+
+
+
 
 
 def louvain_find_partition_multiplex(graphs, partition_type,layer_weights=None, seed=None, **kwargs):
@@ -67,24 +135,6 @@ def louvain_find_partition_multiplex(graphs, partition_type,layer_weights=None, 
 	return partitions[0].membership, improvement
 
 
-def check_symmetric(a, rtol=1e-05, atol=1e-08):
-	return np.allclose(a, a.T, rtol=rtol, atol=atol)
-
-def isFloat(value):
-	if(value is None):
-		return False
-	try:
-		numericValue = float(value)
-		return np.isfinite(numericValue)
-	except ValueError:
-		return False
-
-def loadCSVMatrix(filename):
-	return np.loadtxt(filename,delimiter=",")
-
-
-
-
 
 
 # def infomapMembership(g, parameters):
@@ -117,27 +167,14 @@ if(argCount > 1):
 		configFilename = sys.argv[1]
 
 outputDirectory = "output"
-csvOutputDirectory = os.path.join(outputDirectory, "csv")
+outputFile = PJ(outputDirectory,"network.json.gz")
 
 if(not os.path.exists(outputDirectory)):
 		os.makedirs(outputDirectory)
 
-if(not os.path.exists(csvOutputDirectory)):
-		os.makedirs(csvOutputDirectory)
-
 with open(configFilename, "r") as fd:
 		config = json.load(fd)
 
-# "index": "data/index.json",
-# "label": "data/label.json",
-# "csv": "data/csv",
-# "transform":"absolute", //"absolute" or "signed"
-# "retain-weights":false,
-# "threshold": "none"
-
-indexFilename = config["index"]
-labelFilename = config["label"]
-CSVDirectory = config["csv"]
 
 communiMethod = "louvain"
 infomap_trials = 10
@@ -160,132 +197,117 @@ if("infomap-trials" in config and config["infomap-trials"]):
 if("assymetric-negative" in config):
 	assymetricNegativeWeights = config["assymetric-negative"]
 
-with open(indexFilename, "r") as fd:
-	indexData = json.load(fd)
+networks = jgf.igraph.load(config["network"], compressed=True)
 
-with open(labelFilename, "r") as fd:
-	labelData = json.load(fd)
+outputNetworks = []
 
-
-for entry in indexData:
-	entryFilename = entry["filename"]
-
-	alreadySigned = ("separated-sign" in entry) and entry["separated-sign"]
-
-	#inputfile,outputfile,signedOrNot
-	filenames = [entryFilename]
-	baseName,extension = os.path.splitext(entryFilename)
-
-	if(alreadySigned):
-		filenames += [baseName+"_negative%s"%(extension)]
-
-	if("null-models" in entry):
-		nullCount = int(entry["null-models"])
-		filenames += [baseName+"-null_%d%s"%(i,extension) for i in range(nullCount)]
-		if(alreadySigned):
-			filenames += [baseName+"_negative-null_%d%s"%(i,extension) for i in range(nullCount)]
-
-	entry["community"] = True
-	for filename in tqdm(filenames):
-		adjacencyMatrix = loadCSVMatrix(os.path.join(CSVDirectory, filename))
-		directionMode=ig.ADJ_DIRECTED
-		weights = adjacencyMatrix
-		if(check_symmetric(adjacencyMatrix)):
-			directionMode=ig.ADJ_UPPER
-			weights = weights[np.triu_indices(weights.shape[0], k = 0)]
-		g = ig.Graph.Adjacency((adjacencyMatrix != 0).tolist(), directionMode)
-		weighted = False
-		if(not ((weights==0) | (weights==1)).all()):
-			g.es['weight'] = weights[weights != 0]
-			weighted = True
-
-		weightsProperty = None
-		signed = False;
-		if(weighted):
-			weightsProperty = "weight"
-			if(np.any(np.array(g.es[weightsProperty])<0)):
-				signed=True;
-				g_pos = g.subgraph_edges(g.es.select(weight_gt = 0), delete_vertices=False)
-				g_neg = g.subgraph_edges(g.es.select(weight_lt = 0), delete_vertices=False)
-				g_neg.es['weight'] = [-w for w in g_neg.es['weight']]
-				modularityWeights = [1,-1];
-					
-		if(communiMethod=="louvain"):
+for network in tqdm(networks):
+	weighted = "weight" in network.edge_attributes()
+	layered = False
+	if(weighted):
+		signed = np.any(np.array(network.es["weight"])<0)
+		if(signed):
+			network_pos = network.subgraph_edges(network.es.select(weight_gt = 0), delete_vertices=False)
+			network_neg = network.subgraph_edges(network.es.select(weight_lt = 0), delete_vertices=False)
+			network_neg.es['weight'] = [-w for w in network_neg.es['weight']]
+			layerNetworks = [network_pos,network_neg]
+			layerWeights = [1,-1]
+			layerNames = ["positive","negative"]
+			layered=True
+	if("layer" in network.edge_attributes()):
+		if("edge-layer-weights" in network.attributes()):
+			layerNames = list(network["edge-layer-weights"].keys())
+			layerWeights = list(network["edge-layer-weights"].values())
+		else:
+			layerNames = list(set(network.es["layer"]))
+			layerWeights = [1]*len(layerNames)
+		layerNetworks = []
+		for layerIndex,layerName in enumerate(layerNames):
+			layerNetwork = network.subgraph_edges(network.es.select(layer_eq = layerName), delete_vertices=False)
+			layerNetworks.append(layerNetwork)
+		layered = True
+	
+	if(communiMethod=="louvain"):
 # 			optimiser = louvain.Optimiser()
 # 				diff = optimiser.optimise_partition_multiplex(
 # [part_pos, part_neg]
-			hasResolution = False;
-			partitionFunction = louvain.ModularityVertexPartition;
-			if(louvain_quality_function=="modularity"):
-				partitionFunction = louvain.ModularityVertexPartition;
-				if(signed and assymetricNegativeWeights):
-					modularityWeights = [1,-g_neg.ecount()/(g_pos.ecount()+g_neg.ecount())];
-			elif(louvain_quality_function=="rbconfiguration"):
-				partitionFunction = louvain.RBConfigurationVertexPartition;
-				hasResolution = True;
-				if(signed and assymetricNegativeWeights):
-					modularityWeights = [1/g_pos.ecount(),-1.0/(g_pos.ecount()+g_neg.ecount())];
-			elif(louvain_quality_function=="rber"):
-				partitionFunction = louvain.RBERVertexPartition;
-				hasResolution = True;
-				if(signed and assymetricNegativeWeights):
-					modularityWeights = [1/g_pos.ecount(),-1.0/(g_pos.ecount()+g_neg.ecount())];
-			elif(louvain_quality_function=="cpm"):
-				partitionFunction = louvain.CPMVertexPartition;
-				hasResolution = True;
-				if(signed and assymetricNegativeWeights):
-					modularityWeights = [1/g_pos.ecount(),-1.0/(g_pos.ecount()+g_neg.ecount())];
-			elif(louvain_quality_function=="significance"):
-				partitionFunction = louvain.SignificanceVertexPartition;
-				hasResolution = False;
-				if(weighted):
-					sys.exit("Significance quality does not work for weighted networks");
-			elif(louvain_quality_function=="surprise"):
-				partitionFunction = louvain.SurpriseVertexPartition;
-				hasResolution = False;
-				if(signed and assymetricNegativeWeights):
-					modularityWeights = [1/g_pos.ecount(),-1.0/(g_pos.ecount()+g_neg.ecount())];
-			else:
-				sys.exit("Invalid louvain method.")
-			
-			if(signed):
-				if(hasResolution):
-					membership, improv = louvain_find_partition_multiplex([g_pos, g_neg],partitionFunction,
-						layer_weights=modularityWeights,resolution_parameter=louvain_resolution,weights=weightsProperty)
-				else:
-					membership, improv = louvain_find_partition_multiplex([g_pos, g_neg],partitionFunction,
-						layer_weights=modularityWeights,weights=weightsProperty)
-			else:
-				if(hasResolution):
-					membership = louvain.find_partition(g,partitionFunction,
-						weights=weightsProperty,resolution_parameter=louvain_resolution).membership
-				else:
-					membership = louvain.find_partition(g,partitionFunction,
-						weights=weightsProperty).membership
-		
-		elif(communiMethod=="infomap"):
-			if(signed):
-				sys.exit("Infomap does not work for negative weights.")
-			else:
-				membership = g.community_infomap(edge_weights=weightsProperty,trials=infomap_trials).membership
-		else:
-			sys.exit("Invalid community detection method.")
-
-		outputBaseName,outputExtension = os.path.splitext(filename)
-		with open(os.path.join(csvOutputDirectory,"%s_community.txt"%os.path.basename(outputBaseName)), "w") as fd:
-			for item in membership:
-				fd.write("%d\n"%item)
-
-		with open(os.path.join(csvOutputDirectory,os.path.basename(filename)), "w") as fd:
+		hasResolution = False
+		if(layered):
+			modularityWeights = layerWeights
+		partitionFunction = louvain.ModularityVertexPartition
+		if(louvain_quality_function=="modularity"):
+			partitionFunction = louvain.ModularityVertexPartition
+			if(layered and assymetricNegativeWeights):
+				layerSizes = [g.ecount() for g in layerNetworks]
+				allCount = np.sum(layerSizes)
+				modularityWeights = [layerWeights[layerIndex]*layerSizes[layerIndex]/allCount for layerIndex in range(len(layerWeights))]
+				modularityWeights[0] = 1.0
+		elif(louvain_quality_function=="rbconfiguration"):
+			partitionFunction = louvain.RBConfigurationVertexPartition
+			hasResolution = True
+			if(layered and assymetricNegativeWeights):
+				layerSizes = [g.ecount() for g in layerNetworks]
+				allCount = np.sum(layerSizes)
+				modularityWeights = [layerWeights[layerIndex]/allCount for layerIndex in range(len(layerWeights))]
+				modularityWeights[0] = 1.0/layerWeights[0]
+		elif(louvain_quality_function=="rber"):
+			partitionFunction = louvain.RBERVertexPartition
+			hasResolution = True
+			if(layered and assymetricNegativeWeights):
+				layerSizes = [g.ecount() for g in layerNetworks]
+				allCount = np.sum(layerSizes)
+				modularityWeights = [layerWeights[layerIndex]/allCount for layerIndex in range(len(layerWeights))]
+				modularityWeights[0] = 1.0/layerWeights[0]
+		elif(louvain_quality_function=="cpm"):
+			partitionFunction = louvain.CPMVertexPartition
+			hasResolution = True
+			if(layered and assymetricNegativeWeights):
+				layerSizes = [g.ecount() for g in layerNetworks]
+				allCount = np.sum(layerSizes)
+				modularityWeights = [layerWeights[layerIndex]/allCount for layerIndex in range(len(layerWeights))]
+				modularityWeights[0] = 1.0/layerWeights[0]
+		elif(louvain_quality_function=="significance"):
+			partitionFunction = louvain.SignificanceVertexPartition
+			hasResolution = False
 			if(weighted):
-				outputData = g.get_adjacency(attribute='weight').data
+				sys.exit("Significance quality does not work for weighted networks")
+		elif(louvain_quality_function=="surprise"):
+			partitionFunction = louvain.SurpriseVertexPartition
+			hasResolution = False
+			if(layered and assymetricNegativeWeights):
+				layerSizes = [g.ecount() for g in layerNetworks]
+				allCount = np.sum(layerSizes)
+				modularityWeights = [layerWeights[layerIndex]/allCount for layerIndex in range(len(layerWeights))]
+				modularityWeights[0] = 1.0/layerWeights[0]
+		else:
+			sys.exit("Invalid louvain method.")
+		
+		if(layered):
+			if(hasResolution):
+				membership, improv = louvain_find_partition_multiplex(layerNetworks,partitionFunction,
+					layer_weights=modularityWeights,resolution_parameter=louvain_resolution,weights="weight")
 			else:
-				outputData = g.get_adjacency().data
-			np.savetxt(fd,outputData,delimiter=",")
+				membership, improv = louvain_find_partition_multiplex(layerNetworks,partitionFunction,
+					layer_weights=modularityWeights,weights="weight")
+		else:
+			if(hasResolution):
+				membership = louvain.find_partition(network,partitionFunction,
+					weights="weight",resolution_parameter=louvain_resolution).membership
+			else:
+				membership = louvain.find_partition(network,partitionFunction,
+					weights="weight").membership
+	
+	elif(communiMethod=="infomap"):
+		if(signed):
+			sys.exit("Infomap does not work for negative weights.")
+		else:
+			membership = network.community_infomap(edge_weights="weight",trials=infomap_trials).membership
+	else:
+		sys.exit("Invalid community detection method.")
 
-with open(os.path.join(outputDirectory,"index.json"), "w") as fd:
-	json.dump(indexData,fd)
+	network.vs["Community"] = membership
+	
+	outputNetworks.append(network)
 
-with open(os.path.join(outputDirectory,"label.json"), "w") as fd:
-	json.dump(labelData,fd)
+jgf.igraph.save(outputNetworks, outputFile, compressed=True)
 

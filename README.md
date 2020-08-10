@@ -55,11 +55,11 @@ mv config-sample.json config.json
 
 ### Sample Datasets
 
-A sample dataset is provided in folder `data` and `config-sample.json`
+A sample dataset is provided in folder `data` and `config-sample.json`. Extra examples are provided for other scenarios: `config-sample_negative.json`, `config-sample_layered.json` and `config-sample_nullmodel.json`.
 
 ## Output
 
-The output is a conmat with an extra property contained the communities for each network. The new files end with `_communities.txt` and are placed in the `csv` directory.
+The output is a conmat with an extra property contained the communities for each network.
 
 
 <!-- #### Product.json
