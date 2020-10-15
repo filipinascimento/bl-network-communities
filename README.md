@@ -59,12 +59,9 @@ A sample dataset is provided in folder `data` and `config-sample.json`. Extra ex
 
 ## Output
 
-The output is a conmat with an extra property contained the communities for each network.
+The output is a `network` data with integrated community labels.
 
 
-<!-- #### Product.json
-
-The secondary output of this app is `product.json`. This file allows web interfaces, DB and API calls on the results of the processing.  -->
 
 ### Dependencies
 
