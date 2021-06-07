@@ -11,6 +11,8 @@ import igraph as ig
 import louvain
 import math
 import jgf
+import graph_tool as gt;
+import graph_tool.inference as gtInference;
 # import infomap
 
 
@@ -136,6 +138,52 @@ def louvain_find_partition_multiplex(graphs, partition_type,layer_weights=None, 
 	return partitions[0].membership, improvement
 
 
+
+def SBMMinimizeMembership(graphs,layerWeights=None, weightMode = "real-normal"):
+	layered = (len(graphs)>1)
+	
+	graph = graphs[0]
+	vertexCount = graph.vcount()
+	
+	g = gt.Graph(directed=graph.is_directed())
+	for _ in range(vertexCount):
+		g.add_vertex()
+
+	weighted = "weights" in graph.edge_attributes()
+	if(weighted):
+		weightsProperty = g.new_edge_property("double")
+
+	if(layered):
+		layerProperty = g.new_edge_property("int32_t")
+	
+	for graphIndex, graph in enumerate(graphs):
+		if(weighted):
+			weightMultiplier = 1
+			if(layered and layerWeights is not None):
+				weightMultiplier = layerWeights[graphIndex]
+		for edge in graph.es:
+			gedge = g.add_edge(edge.source,edge.target)
+			if(weighted):
+				weight = weightMultiplier*edge["weight"]
+				weightsProperty[gedge] = weight
+			if(layered):
+				layerProperty[gedge] = graphIndex
+	if(weighted):
+		g.edge_properties["weight"] = weightsProperty
+	if(layered):
+		g.edge_properties["layer"] = layerProperty
+	
+	state_args = {}
+	if(weighted):
+		state_args["recs"] = [g.ep.weight]
+		state_args["rec_types"] = [weightMode]
+
+	if(layered):
+		state_args["ec"] = g.ep.layer
+		state_args["layers"] = True
+	# print(state_args)
+	state = gtInference.minimize.minimize_blockmodel_dl(g,deg_corr=True, layers=layered, state_args=state_args);
+	return list(state.get_blocks())
 
 
 # def infomapMembership(g, parameters):
@@ -303,8 +351,13 @@ for network in tqdm(networks):
 			exitAppWithError("Infomap does not work for negative weights.")
 		else:
 			membership = network.community_infomap(edge_weights="weight",trials=infomap_trials).membership
+	elif(communiMethod=="sbm"):
+		if(layered):
+			membership = SBMMinimizeMembership(layerNetworks,layerWeights = layerWeights)
+		else:
+			membership = SBMMinimizeMembership([network])
 	else:
-		exitAppWithError("Invalid community detection method.")
+		exitAppWithError("Invalid community detection method (%s)."%communiMethod)
 
 	network.vs["Community"] = membership
 	
