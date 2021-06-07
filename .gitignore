@@ -159,3 +159,6 @@ Temporary Items
 #brainlife
 output/
 product.json
+
+#VSCode
+.vscode/
