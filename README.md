@@ -30,6 +30,9 @@ brainlife.io is publicly funded and for the sustainability of the project it is 
 
 4. Rubinov, Mikail, and Olaf Sporns. "Weight-conserving characterization of complex functional brain networks." Neuroimage 56, no. 4 (2011): 2068-2079. [https://doi.org/10.1016/j.neuroimage.2011.03.069](https://doi.org/10.1016/j.neuroimage.2011.03.069)
 
+5. Tiago P. Peixoto. “Efficient Monte Carlo and greedy heuristic for the inference of stochastic block models”, Phys. Rev. E 89, 012804 (2014). [https://doi.org/10.1103/PhysRevE.89.012804](https://doi.org/10.1103/PhysRevE.89.012804)
+
+6. Tiago P. Peixoto. “Inferring the mesoscale structure of layered, edge-valued and time-varying networks”, Phys. Rev. E 92, 042807 (2015). [https://doi.org/10.1103/PhysRevE.92.042807](https://doi.org/10.1103/PhysRevE.92.042807)
 
 ## Running the App 
 
